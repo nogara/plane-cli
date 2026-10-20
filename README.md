@@ -16,6 +16,7 @@ The main differentiator is **intelligent fuzzy search**: reference any resource 
 - **Intake**: Manage a project's intake queue — list, create, triage (accept/decline), and delete items
 - **Comments**: Add, update, and delete comments on work items
 - **Attachments**: Upload, list, and download work item file attachments
+- **Links & Relations**: Attach URLs to work items and relate work items (blocking, duplicate, relates to, ...)
 - **Users**: List workspace members and identify the authenticated user
 - **Fuzzy Search**: Intelligent resource resolution — `--project "Front"` finds "Frontend"
 - **Dual Output**: Rich tables (default) or JSON with `--json` for scripting
@@ -92,9 +93,9 @@ planecli wi ls -p "Frontend" --labels "bug,critical"
 # Sort and limit results
 planecli wi ls -p "Frontend" --sort updated --limit 10
 
-# Show a specific work item (by identifier or name); also bundles its comments
+# Show a specific work item (by identifier or name); also bundles its comments, links and relations
 planecli wi show ABC-123
-planecli wi show ABC-123 --no-comments   # skip the comment fetch
+planecli wi show ABC-123 --no-comments   # skip the comment fetch (also --no-links, --no-relations)
 planecli wi show ABC-123 --format html   # raw editor HTML instead of Markdown
 
 # Create a work item
@@ -282,6 +283,30 @@ planecli attachment get ABC-123 --all -d ./downloads   # repeated names saved as
 
 A file name shared by several attachments (pasted screenshots are all `image.png`) needs an id, or `--all` to save every match. Existing files in `--dir` are never overwritten unless `--force` is given; `--json` prints the saved paths.
 
+### Links
+
+```bash
+# List, add, and delete the URLs linked to a work item
+planecli link ls ABC-123
+planecli link add ABC-123 https://github.com/org/repo/pull/42 --title "PR #42"
+planecli link delete ABC-123 https://github.com/org/repo/pull/42   # or the link id
+```
+
+### Relations
+
+```bash
+# List a work item's relations (with the related items' identifiers and titles)
+planecli relation ls ABC-123
+
+# Relate work items; reads as a sentence: ABC-123 blocks ABC-124 and ABC-125
+planecli relation add ABC-123 blocking ABC-124 ABC-125
+
+# Remove the relation between two work items
+planecli relation remove ABC-123 ABC-124
+```
+
+Relation types: `blocking`, `blocked_by`, `duplicate`, `relates_to`, `start_before`, `start_after`, `finish_before`, `finish_after`. Self-hosted Plane up to v1.4.2 has no API endpoint for removing a relation, so `relation remove` fails there without changing anything; remove it in the web app.
+
 ### Users
 
 ```bash
@@ -310,6 +335,8 @@ planecli --no-cache wi ls -p "Frontend"
 | `planecli project` | `projects` |
 | `planecli comment` | `comments` |
 | `planecli attachment` | `attachments` |
+| `planecli link` | `links` |
+| `planecli relation` | `relations` |
 | `planecli document` | `documents`, `doc`, `docs` |
 | `planecli users` | `user` |
 | `planecli module` | `modules` |

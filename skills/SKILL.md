@@ -130,6 +130,11 @@ planecli comment create ABC-123 --body "Fixed in PR #456" --json
 # Attachments (get saves to disk; a shared name like image.png needs an id or --all)
 planecli attachment ls ABC-123 --json
 planecli attachment get ABC-123 --all -d ./downloads --json
+
+# Links and relations (relation add reads as a sentence: ABC-123 blocks ABC-124)
+planecli link add ABC-123 https://github.com/org/repo/pull/42 --title "PR #42" --json
+planecli relation add ABC-123 blocking ABC-124 --json
+planecli relation ls ABC-123 --json
 ```
 
 ## Gotchas
@@ -156,10 +161,14 @@ planecli attachment get ABC-123 --all -d ./downloads --json
 - **State names are strict.** `--state` takes an exact name (case-insensitive) or a partial name
   that fits only one state (stderr notes `State matched: "x" -> "y"`). Ambiguous or unknown names
   exit 5 and list the project's states — pick a full name from that list instead of retrying.
+- **Relations may be impossible to undo via the API.** Self-hosted Plane up to v1.4.2 has no
+  endpoint for removing a relation (`relation remove` exits 4); only the web app can. Add
+  relations deliberately.
 - **`wi show` bundles comments and can degrade to `comments: null`.** `[]` = none, a list = some,
   `null` = the comment fetch failed while the work item still returned and the command exited 0.
   Check for `null` explicitly when "no comments" and "couldn't load comments" differ for you.
-  `--no-comments` omits the key entirely.
+  `--no-comments` omits the key entirely. `links` and `relations` follow the same rules
+  (`--no-links`, `--no-relations`).
 
 ## Bulk create with rich descriptions
 

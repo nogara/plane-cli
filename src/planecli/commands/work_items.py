@@ -499,6 +499,8 @@ async def show(
     project: Annotated[str | None, Parameter(alias="-p")] = None,
     json: bool = False,
     no_comments: bool = False,
+    no_links: bool = False,
+    no_relations: bool = False,
     format: DescriptionFormat = "markdown",
 ) -> None:
     """Show work item details.
@@ -511,6 +513,10 @@ async def show(
         Project name/ID (required for name-based lookup).
     no_comments
         Skip fetching the work item's comments.
+    no_links
+        Skip fetching the work item's links.
+    no_relations
+        Skip fetching the work item's relations.
     format
         How the table shows the description and comments: markdown (default)
         or the raw editor html. JSON always carries description_html and
@@ -594,36 +600,64 @@ async def show(
     )
     _add_description_markdown(data)
 
-    # Comments are a SECONDARY enrichment: fetched in their own block OUTSIDE the
-    # resolve/estimate try above, so a comment API failure degrades to null
-    # (ADR-0006) instead of hitting the outer handler and aborting the command.
-    if not no_comments and data.get("id") and data.get("project"):
-        from planecli.commands.comments import fetch_issue_comments
-        from planecli.exceptions import PlaneCLIError
-        try:
-            data["comments"] = await fetch_issue_comments(
-                workspace, data["project"], data["id"]
+    # Comments, links and relations are SECONDARY enrichments: fetched in
+    # parallel OUTSIDE the resolve/estimate try above, each degrading to null
+    # on an API failure (ADR-0006) instead of aborting the command.
+    sections: dict[str, tuple[str, list[tuple[str, str]]]] = {}
+    if data.get("id") and data.get("project"):
+        from planecli.commands.comments import comment_columns, fetch_issue_comments
+        from planecli.commands.links import LINK_COLUMNS, fetch_issue_links
+        from planecli.commands.relations import RELATION_COLUMNS, fetch_issue_relations
+
+        fetches = {}
+        if not no_comments:
+            fetches["comments"] = fetch_issue_comments(workspace, data["project"], data["id"])
+            sections["comments"] = ("Comments", comment_columns(format))
+        if not no_links:
+            fetches["links"] = fetch_issue_links(
+                create_client(), workspace, data["project"], data["id"]
             )
-        except (PlaneError, PlaneCLIError) as exc:
-            logger.warning("Failed to fetch comments: {}", exc)
-            data["comments"] = None  # signal failure, do NOT abort
+            sections["links"] = ("Links", LINK_COLUMNS)
+        if not no_relations:
+            fetches["relations"] = fetch_issue_relations(
+                create_client(), workspace, data["project"], data["id"]
+            )
+            sections["relations"] = ("Relations", RELATION_COLUMNS)
+        results = await asyncio.gather(
+            *[_secondary(key, coro) for key, coro in fetches.items()]
+        )
+        data.update(zip(fetches, results))
 
     output_single(data, _wi_fields(format), title="Work Item Details", as_json=json)
 
-    # Human-readable Comments section (non-JSON only, so stdout stays clean under --json).
-    # Gated on the same id/project check as the fetch above, so we only ever
-    # render "(failed to load)" when a fetch was actually attempted and failed.
-    if not json and not no_comments and data.get("id") and data.get("project"):
-        from planecli.commands.comments import comment_columns
+    # Human-readable sections (non-JSON only, so stdout stays clean under --json),
+    # rendered only for fetches that were attempted, so "(failed to load)"
+    # always means a fetch failed.
+    if not json:
         from planecli.formatters import console
 
-        comments = data.get("comments")
-        if comments:
-            output(comments, comment_columns(format), title="Comments")
-        elif comments == []:
-            console.print("Comments: (none)")
-        else:  # None -> fetch failed
-            console.print("Comments: (failed to load)")
+        for key, (title, columns) in sections.items():
+            rows = data.get(key)
+            if rows:
+                output(rows, columns, title=title)
+            elif rows == []:
+                console.print(f"{title}: (none)")
+            else:  # None -> fetch failed
+                console.print(f"{title}: (failed to load)")
+
+
+async def _secondary(what: str, coro):
+    """Await a secondary enrichment; an API failure becomes None (ADR-0006).
+
+    Programming errors still propagate — only API/CLI errors degrade.
+    """
+    from planecli.exceptions import PlaneCLIError
+
+    try:
+        return await coro
+    except (PlaneError, PlaneCLIError) as exc:
+        logger.warning("Failed to fetch {}: {}", what, exc)
+        return None  # signal failure, do NOT abort
 
 
 @wi_app.command(alias="new")

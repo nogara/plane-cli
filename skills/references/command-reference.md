@@ -11,6 +11,8 @@
 - [Documents](#documents)
 - [Comments](#comments)
 - [Attachments](#attachments)
+- [Links](#links)
+- [Relations](#relations)
 - [Intake](#intake)
 - [Users](#users)
 - [Cache](#cache)
@@ -38,6 +40,8 @@ Environment variable `PLANE_WORKSPACE=NAME` selects the workspace for a whole sh
 | `document` | `doc`, `docs`, `documents` |
 | `comment` | `comments` |
 | `attachment` | `attachments` |
+| `link` | `links` |
+| `relation` | `relations` |
 | `module` | `modules` |
 | `label` | `labels` |
 | `state` | `states` |
@@ -78,6 +82,7 @@ planecli wi show ISSUE [OPTIONS]
 | `ISSUE` | Work item identifier (ABC-123), UUID, or name (required) |
 | `--project` / `-p` | Project (required for name-based lookup) |
 | `--no-comments` | Skip fetching the work item's comments |
+| `--no-links` / `--no-relations` | Skip fetching the work item's links / relations |
 | `--format` | `markdown` (default) or `html`: how the table shows the description and comments |
 | `--json` | JSON output |
 
@@ -92,6 +97,10 @@ then omitted from JSON output).
 The description is shown as Markdown (task lists as `- [x]`, images as `![alt](src)`).
 `--json` carries the raw `description_html` plus `description_markdown`; each comment
 carries `comment_html` plus `body_markdown`.
+
+Links and relations are fetched in parallel with the comments and degrade the same way:
+`links` / `relations` are lists, or `null` when that fetch failed. Each relation row is
+`{relation_type, issue_id, project_id, identifier, name}`.
 
 ### wi create
 
@@ -321,6 +330,36 @@ which saves every match as `image.png`, `image-2.png`, ... Existing files in `--
 (default: the current directory) are sidestepped the same way unless `--force`;
 `-o` saves exactly one attachment and overwrites. `--json` prints
 `[{id, name, type, size, path}]` with absolute paths.
+
+## Links
+
+Command group: `planecli link` (alias: `links`)
+
+```
+planecli link ls ISSUE [--project/-p PROJECT]
+planecli link add ISSUE URL [--title/-t TITLE] [--project/-p PROJECT]
+planecli link delete ISSUE LINK_ID_OR_URL [--project/-p PROJECT]
+```
+
+A URL can be linked once per work item, so `delete` accepts the exact URL. Without
+`--title`, Plane fills the title in from the page. `--json` drops the crawled favicon.
+
+## Relations
+
+Command group: `planecli relation` (alias: `relations`)
+
+```
+planecli relation ls ISSUE [--project/-p PROJECT]
+planecli relation add ISSUE TYPE TARGET... [--project/-p PROJECT]
+planecli relation remove ISSUE TARGET... [--project/-p PROJECT]
+```
+
+TYPE: `blocking`, `blocked_by`, `duplicate`, `relates_to`, `start_before`, `start_after`,
+`finish_before`, `finish_after` (hyphens accepted). `relation add ABC-1 blocking ABC-2`
+means ABC-1 blocks ABC-2. Targets are identifiers or UUIDs (names need `--project`).
+`add` re-reads the relations and fails if one did not land. `remove` deletes one relation
+per pair, whatever its type. Self-hosted Plane up to v1.4.2 has no API endpoint for
+removing relations: `remove` then exits 4 without changing anything.
 
 ## Intake
 

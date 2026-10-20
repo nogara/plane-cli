@@ -30,10 +30,10 @@ def _format_value(value: Any) -> str | Text:
     # ISO timestamp like "2026-02-08T12:26:34.340901Z" -> "2026-02-08 12:26:34"
     if len(s) >= 20 and s[10:11] == "T" and s.endswith("Z"):
         return s[:19].replace("T", " ")
-    # Long prose (descriptions, comments) folds so URLs stay whole instead
-    # of being cut with an ellipsis; short values such as ids keep the
-    # table's default overflow.
-    if "\n" in s or len(s) > 80:
+    # Long prose (descriptions, comments) and URLs fold so they stay whole
+    # instead of being cut with an ellipsis; short values such as ids keep
+    # the table's default overflow.
+    if "\n" in s or len(s) > 80 or s.startswith(("http://", "https://")):
         return Text(s, overflow="fold")
     return Text(s)
 
