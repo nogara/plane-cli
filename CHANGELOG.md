@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - Table output no longer treats brackets in data as Rich markup: a value such as `[x] done` lost its `[x]`. Long values (descriptions, comments) and URLs now wrap instead of being cut with an ellipsis
+- `project create` without `-i` derives the identifier from the project name's first 5 letters and digits (`"My Project"` → `MYPRO`). Before, it took the first 3 characters as they were, so a space or punctuation ended up in the identifier (`"MY "`)
 
 ## [0.5.1] - 2026-07-03
 
