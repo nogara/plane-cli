@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Several workspaces: optional `[name]` sections in `~/.plane_api` (slug, and optionally their own API key and base URL), a global `--workspace`/`-w NAME` flag that selects a section or any slug for one command, and `planecli workspaces` to list them without secrets. The existing file format keeps working unchanged
 - `planecli intake` command group: `ls`, `create`, `accept`, `decline`, `delete`, `enabled` for project intake queues. Mutations take the work item UUID shown in the `Issue ID` column of `intake ls`. `accept`/`decline` require the project Admin role (the API silently ignores the change for lower roles, so the CLI verifies it and fails loudly). `delete` also permanently deletes the underlying work item for any status other than `accepted`
 
+### Changed
+- State names no longer resolve fuzzily in `wi create --state`, `wi update --state`, `wi ls --state` and `state show/update/delete`. An exact case-insensitive name wins; otherwise a partial name is used only if it fits exactly one state, with a `State matched: "x" -> "y"` notice on stderr. An ambiguous or unknown name fails with exit code 5 and lists the project's states (before, `--state qa` could silently pick "pronto p/ qa"; an unknown name exited with 3). `wi ls --state` no longer ORs every state containing the text. State UUIDs work as before
+
 ### Fixed
 - Table output no longer treats brackets in data as Rich markup: a value such as `[x] done` lost its `[x]`. Long values (descriptions, comments) now wrap instead of being cut with an ellipsis
 
